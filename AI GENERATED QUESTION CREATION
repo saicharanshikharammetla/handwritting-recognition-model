@@ -1,0 +1,54 @@
+import sqlite3
+import random
+import re
+
+def init_db():
+    conn = sqlite3.connect("math_questions.db")
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS questions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    template TEXT,
+                    variables TEXT,
+                    correct_answer REAL
+                )''')
+    conn.commit()
+    conn.close()
+
+def add_question(template, variables, correct_answer):
+    conn = sqlite3.connect("math_questions.db")
+    c = conn.cursor()
+    c.execute("INSERT INTO questions (template, variables, correct_answer) VALUES (?, ?, ?)",
+              (template, str(variables), correct_answer))
+    conn.commit()
+    conn.close()
+
+def generate_new_question(template):
+    variables = re.findall(r'\{(.*?)\}', template)
+    new_values = {var: random.randint(1, 20) for var in variables}
+    new_question = template.format(**new_values)
+    correct_answer = eval(new_question.split('=')[0])  # Evaluate the left side
+    add_question(template, new_values, correct_answer)
+    return new_question, correct_answer
+
+def get_all_questions():
+    conn = sqlite3.connect("math_questions.db")
+    c = conn.cursor()
+    c.execute("SELECT * FROM questions")
+    questions = c.fetchall()
+    conn.close()
+    return questions
+
+def handle_incorrect_answer(question_id):
+    conn = sqlite3.connect("math_questions.db")
+    c = conn.cursor()
+    c.execute("SELECT template FROM questions WHERE id = ?", (question_id,))
+    template = c.fetchone()[0]
+    conn.close()
+    return generate_new_question(template)
+
+if __name__ == "__main__":
+    init_db()
+    add_question("{x} + {y} = ?", {'x': 5, 'y': 3}, 8)
+    print("Existing Questions:", get_all_questions())
+    new_q, new_ans = handle_incorrect_answer(1)
+    print("Generated New Question:", new_q, "Answer:", new_ans)
